@@ -23,6 +23,17 @@ Enso is three executables plus one Swift package:
 | `EnsoSMC` | AppleSMC IOKit user client: typed reads/writes, capability probing (`CHTE/CHIE` vs `CH0B/CH0C/CH0I`), `MockSMC` + `DryRunSMC` test doubles | writes: root |
 | `EnsoBattery` | `AppleSmartBattery` IORegistry snapshots + IOPowerSources change stream | no |
 
+The root `Package.swift` builds three executables from this package: `Enso`
+(SwiftUI menu bar app, `Apps/Enso`), `ensod` (root daemon, `Daemon/EnsoDaemon`),
+and `ensoctl` (CLI, `CLI/ensoctl`). `Scripts/make-app.sh` assembles them into
+an ad-hoc-signed `Enso.app` with the daemon and install scripts as bundle
+resources.
+
+**Force-discharge caveat (learned on hardware):** discharging works by
+disabling the adapter in firmware (`CHIE = 0x8`), which makes IOKit report the
+adapter as disconnected on the next tick. The engine therefore skips the
+"cancel tasks on unplug" rule while its own last action was `forceDischarge`.
+
 ## Design rules
 
 1. **The daemon owns every charging decision.** The app is UI + config only. If the app crashes, the limit keeps being enforced. On graceful quit the app sends `appWillQuit`; the daemon keeps maintaining or resets to 100%, per user setting.

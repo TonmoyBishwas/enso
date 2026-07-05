@@ -49,7 +49,13 @@ Use **Settings → Uninstall Helper** inside Enso (restores your battery to stoc
 
 ## Building from source
 
-Open `Enso.xcodeproj` in Xcode 26+ and press ⌘R. Core logic lives in the `Packages/EnsoCore` Swift package — run its tests with `swift test --package-path Packages/EnsoCore`.
+```bash
+git clone https://github.com/TonmoyBishwas/enso.git && cd enso
+./Scripts/make-app.sh          # builds dist/Enso.app (needs Xcode 26+)
+swift test --package-path Packages/EnsoCore   # run the test suite
+```
+
+Or open the folder in Xcode (`xed .`) and run the `Enso` scheme. The core logic lives in the `Packages/EnsoCore` Swift package; the app, root daemon (`ensod`), and CLI (`ensoctl`) are SPM executable targets assembled into an app bundle by `Scripts/make-app.sh`.
 
 ## License
 

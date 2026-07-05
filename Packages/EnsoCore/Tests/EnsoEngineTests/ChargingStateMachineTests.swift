@@ -107,6 +107,25 @@ final class ChargingStateMachineTests: XCTestCase {
         XCTAssertTrue(out.events.contains { if case .taskCancelled = $0 { return true }; return false })
     }
 
+    func testDischargeSurvivesItsOwnAdapterDisable() {
+        // Force-discharge disables the adapter in firmware, so the next tick
+        // reads "unplugged". The engine must not cancel its own task
+        // (regression: found in live hardware testing).
+        var mem = EngineMemory()
+        _ = ChargingStateMachine.start(task: .discharge(target: 90), memory: &mem)
+        // First tick: adapter still reads connected.
+        XCTAssertEqual(ChargingStateMachine.step(input: input(soc: 94), memory: &mem).action, .forceDischarge)
+        // Next ticks: adapter reads disconnected because of our CHIE write.
+        let out = ChargingStateMachine.step(input: input(soc: 94, adapter: false, charging: false), memory: &mem)
+        XCTAssertEqual(out.action, .forceDischarge)
+        XCTAssertNotNil(mem.activeTask)
+        XCTAssertTrue(out.sleepBlock, "Mac must stay awake for the discharge to progress")
+        // Completes at target even while adapter reads disconnected.
+        let done = ChargingStateMachine.step(input: input(soc: 90, adapter: false, charging: false), memory: &mem)
+        XCTAssertTrue(done.events.contains(.dischargeDone))
+        XCTAssertNil(mem.activeTask)
+    }
+
     func testUnplugPausesCalibrationWithoutCancelling() {
         var mem = EngineMemory()
         mem.activeTask = .calibration(phase: .chargeToFull, holdUntil: nil)

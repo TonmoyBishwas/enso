@@ -148,7 +148,11 @@ public enum ChargingStateMachine {
 
         // P1 — no adapter: never hold a stale inhibit, and AC-dependent
         // one-shot tasks end here (calibration merely pauses).
-        if !input.isAdapterConnected {
+        // Caveat: force-discharge works by disabling the adapter in firmware,
+        // so while we are the ones discharging, an "unplugged" reading is our
+        // own doing — not a physical unplug. Skip the rule in that case.
+        let dischargingByUs = memory.lastAction == .forceDischarge
+        if !input.isAdapterConnected && !dischargingByUs {
             switch memory.activeTask {
             case .topUp:
                 memory.activeTask = nil
@@ -330,9 +334,11 @@ public enum ChargingStateMachine {
 
         // Sleep-block: any active AC task must keep the Mac awake to run;
         // otherwise only when the user opted into prevent-sleep-until-limit
-        // and we're still below target on AC.
+        // and we're still below target on AC. A force-discharge makes the
+        // adapter read as disconnected — treat it as present.
+        let adapterPresent = input.isAdapterConnected || action == .forceDischarge
         let sleepBlock: Bool
-        if !input.isAdapterConnected || input.phase != .normal || memory.failsafeActive {
+        if !adapterPresent || input.phase != .normal || memory.failsafeActive {
             sleepBlock = false
         } else if memory.activeTask != nil {
             sleepBlock = true
@@ -353,7 +359,7 @@ public enum ChargingStateMachine {
         case .system: return .system
         case .off: return .off
         case .enso:
-            guard input.isAdapterConnected else { return .system }
+            guard input.isAdapterConnected || action == .forceDischarge else { return .system }
             switch action {
             case .forceDischarge: return .amber
             case .inhibit: return atLimit ? .green : .amber
