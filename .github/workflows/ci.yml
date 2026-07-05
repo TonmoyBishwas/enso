@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # macOS 26 runner needed for the macOS 26 SDK (Liquid Glass APIs).
+    # If the label is ever unavailable, fall back to macos-latest.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Run EnsoCore tests
+        run: swift test --package-path Packages/EnsoCore
+
+      - name: Build all executables
+        run: swift build -c release
+
+      - name: Assemble app bundle
+        run: ./Scripts/make-app.sh dist
