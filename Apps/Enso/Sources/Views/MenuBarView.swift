@@ -5,6 +5,7 @@ import EnsoBattery
 struct MenuBarView: View {
     @EnvironmentObject var state: AppState
     @Environment(\.openSettings) private var openSettings
+    @AppStorage("showTrueBatteryHealth") private var showTrueHealth = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -178,7 +179,7 @@ struct MenuBarView: View {
     private var statsGrid: some View {
         Grid(horizontalSpacing: 12, verticalSpacing: 8) {
             GridRow {
-                stat("Health", state.battery.map { String(format: "%.0f%%", $0.healthPercent) } ?? "—",
+                stat("Health", state.battery.map { healthText(for: $0.healthPercent) } ?? "—",
                      help: healthHelp)
                 stat("Cycles", state.battery.map { "\($0.cycleCount)" } ?? "—")
             }
@@ -199,9 +200,19 @@ struct MenuBarView: View {
         return "Battery"
     }
 
+    /// Like Apple's Battery Health screen, cap at 100% by default — a young
+    /// battery can exceed its factory rating, which reads as "broken" to most
+    /// people. The true value is opt-in via Settings.
+    private func healthText(for health: Double) -> String {
+        String(format: "%.0f%%", showTrueHealth ? health : min(health, 100))
+    }
+
     private var healthHelp: String {
         guard let battery = state.battery else { return "" }
         let base = "Current maximum capacity (\(battery.maxCapacitymAh) mAh) vs. the factory design rating (\(battery.designCapacitymAh) mAh)."
+        if battery.healthPercent > 100 && !showTrueHealth {
+            return base + " The true value is above 100% — new batteries often exceed their conservative rating. Enable “Show true battery health” in Settings to display it."
+        }
         if battery.healthPercent > 100 {
             return base + " New batteries often hold a little more than their conservative rating, so values above 100% are normal."
         }

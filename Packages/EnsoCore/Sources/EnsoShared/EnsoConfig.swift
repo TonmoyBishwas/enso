@@ -6,7 +6,7 @@ import Foundation
 public let DAEMON_PROTOCOL_VERSION = 1
 
 /// Marketing version, shared by app, daemon and CLI (built from one commit).
-public let ENSO_VERSION = "0.1.0"
+public let ENSO_VERSION = "0.1.1"
 
 public enum ChargeLimits {
     /// Users may never set a limit below this — deep discharge holds are unsafe.

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.1 (2026-07-05)
+
+- Battery health now reads at most 100% by default (like Apple's Battery
+  Health screen) — young batteries exceeding their factory rating confused
+  people. The true uncapped value is available via Settings → "Show true
+  battery health", and hovering the Health stat always shows the mAh math.
+- UI-only releases no longer ask to update the helper; an admin prompt is
+  only needed when the app↔helper protocol actually changes.
+
 ## v0.1.0 — Core (2026-07-05)
 
 First release. Apple Silicon MacBooks (M1+), macOS 14+.

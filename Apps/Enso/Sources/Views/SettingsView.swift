@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject var state: AppState
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmUninstall = false
+    @AppStorage("showTrueBatteryHealth") private var showTrueHealth = false
 
     var body: some View {
         Form {
@@ -43,6 +44,11 @@ struct SettingsView: View {
                 Toggle("Use hardware battery percentage", isOn: $state.config.useHardwarePercentage)
                     .onChange(of: state.config.useHardwarePercentage) { _, _ in state.pushConfig() }
                 Text("Reads the battery's own gauge, which can differ a few percent from the value macOS shows.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Show true battery health", isOn: $showTrueHealth)
+                Text("A young battery can hold more than its factory rating, so its true health can read above 100%. Off, the value is capped at 100% like Apple's Battery Health screen.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

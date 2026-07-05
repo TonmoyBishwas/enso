@@ -76,11 +76,10 @@ final class DaemonClient: ObservableObject {
             handshaken = false
             return
         }
-        if decoded.daemonVersion != ENSO_VERSION {
-            state = .needsUpgrade
-        } else {
-            state = .ready
-        }
+        // A daemonVersion difference alone is fine (UI-only releases don't
+        // require an admin prompt); incompatible daemons are caught by the
+        // protocol-version check in the handshake.
+        state = .ready
         status = decoded
     }
 
