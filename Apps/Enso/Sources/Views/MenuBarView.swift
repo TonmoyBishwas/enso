@@ -178,7 +178,8 @@ struct MenuBarView: View {
     private var statsGrid: some View {
         Grid(horizontalSpacing: 12, verticalSpacing: 8) {
             GridRow {
-                stat("Health", state.battery.map { String(format: "%.0f%%", $0.healthPercent) } ?? "—")
+                stat("Health", state.battery.map { String(format: "%.0f%%", $0.healthPercent) } ?? "—",
+                     help: healthHelp)
                 stat("Cycles", state.battery.map { "\($0.cycleCount)" } ?? "—")
             }
             GridRow {
@@ -198,7 +199,16 @@ struct MenuBarView: View {
         return "Battery"
     }
 
-    private func stat(_ label: String, _ value: String) -> some View {
+    private var healthHelp: String {
+        guard let battery = state.battery else { return "" }
+        let base = "Current maximum capacity (\(battery.maxCapacitymAh) mAh) vs. the factory design rating (\(battery.designCapacitymAh) mAh)."
+        if battery.healthPercent > 100 {
+            return base + " New batteries often hold a little more than their conservative rating, so values above 100% are normal."
+        }
+        return base
+    }
+
+    private func stat(_ label: String, _ value: String, help: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .font(.caption2)
@@ -208,6 +218,7 @@ struct MenuBarView: View {
                 .monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .help(help ?? "")
     }
 
     // MARK: footer
