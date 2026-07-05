@@ -98,13 +98,43 @@ final class ChargingStateMachineTests: XCTestCase {
 
     // MARK: P1 adapter
 
-    func testUnplugAllowsAndCancelsTopUp() {
+    func testUnplugAllowsAndCancelsTopUpAfterDebounce() {
         var mem = EngineMemory()
         mem.activeTask = .topUp
+        // First unplugged reading could be post-wake staleness: task survives.
+        _ = ChargingStateMachine.step(input: input(soc: 90, adapter: false, charging: false), memory: &mem)
+        XCTAssertNotNil(mem.activeTask)
+        // Second consecutive reading confirms a real unplug.
         let out = ChargingStateMachine.step(input: input(soc: 90, adapter: false, charging: false), memory: &mem)
         XCTAssertEqual(out.action, .allow)
         XCTAssertNil(mem.activeTask)
         XCTAssertTrue(out.events.contains { if case .taskCancelled = $0 { return true }; return false })
+    }
+
+    func testSingleStaleUnplugReadingDoesNotCancelTask() {
+        // Regression from hardware: IOKit reports the adapter as gone for a
+        // while after wake; a plugged reading in between resets the streak.
+        var mem = EngineMemory()
+        mem.activeTask = .topUp
+        _ = ChargingStateMachine.step(input: input(soc: 90, adapter: false, charging: false), memory: &mem)
+        _ = ChargingStateMachine.step(input: input(soc: 90), memory: &mem) // adapter back
+        _ = ChargingStateMachine.step(input: input(soc: 90, adapter: false, charging: false), memory: &mem)
+        XCTAssertNotNil(mem.activeTask, "alternating readings must never cancel the task")
+    }
+
+    func testPostWakeSettleNeverTouchesTasks() {
+        // Regression from hardware: during the settle window the adapter may
+        // read as disconnected; the engine must hold and not cancel anything.
+        var mem = EngineMemory()
+        mem.activeTask = .discharge(target: 90)
+        mem.lastAction = .inhibit // pre-sleep tick inhibited
+        let out = ChargingStateMachine.step(
+            input: input(soc: 95, adapter: false, charging: false, phase: .postWakeSettling),
+            memory: &mem
+        )
+        XCTAssertEqual(out.action, .inhibit) // held
+        XCTAssertNotNil(mem.activeTask)
+        XCTAssertTrue(out.events.isEmpty)
     }
 
     func testDischargeSurvivesItsOwnAdapterDisable() {

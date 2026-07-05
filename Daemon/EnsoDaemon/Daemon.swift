@@ -12,7 +12,7 @@ let ENSO_DAEMON_VERSION = ENSO_VERSION
 final class Daemon {
     static let tickInterval: TimeInterval = 10
     static let preSleepSuppression: TimeInterval = 60
-    static let postWakeSettle: TimeInterval = 30
+    static let postWakeSettle: TimeInterval = 45
 
     let queue = DispatchQueue(label: "com.enso.daemon.core")
     let log = Logger(subsystem: "com.enso.daemon", category: "core")

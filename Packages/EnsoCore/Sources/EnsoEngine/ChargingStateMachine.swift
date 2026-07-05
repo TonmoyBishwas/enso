@@ -94,6 +94,10 @@ public struct EngineMemory: Codable, Equatable, Sendable {
     /// Set when a top-up first observes SoC >= 99; completes after 10 min there.
     public var topUpNearFullSince: Date?
     public var failsafeActive: Bool
+    /// Consecutive ticks the adapter has read as disconnected. IOKit reports
+    /// the adapter as gone for a while after wake, so unplug handling waits
+    /// for two readings in a row.
+    public var adapterGoneStreak: Int
 
     public init() {
         lastAction = .allow
@@ -102,6 +106,23 @@ public struct EngineMemory: Codable, Equatable, Sendable {
         heatCooldownUntil = nil
         topUpNearFullSince = nil
         failsafeActive = false
+        adapterGoneStreak = 0
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case lastAction, activeTask, heatLatched, heatCooldownUntil,
+             topUpNearFullSince, failsafeActive, adapterGoneStreak
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        lastAction = try c.decode(ChargeAction.self, forKey: .lastAction)
+        activeTask = try c.decodeIfPresent(EngineTask.self, forKey: .activeTask)
+        heatLatched = try c.decode(Bool.self, forKey: .heatLatched)
+        heatCooldownUntil = try c.decodeIfPresent(Date.self, forKey: .heatCooldownUntil)
+        topUpNearFullSince = try c.decodeIfPresent(Date.self, forKey: .topUpNearFullSince)
+        failsafeActive = try c.decode(Bool.self, forKey: .failsafeActive)
+        adapterGoneStreak = try c.decodeIfPresent(Int.self, forKey: .adapterGoneStreak) ?? 0
     }
 }
 
@@ -146,13 +167,30 @@ public enum ChargingStateMachine {
             memory.failsafeActive = false
         }
 
+        // Post-wake settle comes before any adapter-based decision: IOKit's
+        // adapter/battery readings are stale for a while after wake, and one
+        // stale "unplugged" reading must not cancel tasks (seen on hardware).
+        if input.phase == .postWakeSettling {
+            return EngineOutput(action: memory.lastAction, sleepBlock: false,
+                                led: led(for: memory.lastAction, input: input, config: config, atLimit: input.soc >= limit),
+                                events: events)
+        }
+
+        // Adapter-gone debounce (see EngineMemory.adapterGoneStreak).
+        if input.isAdapterConnected {
+            memory.adapterGoneStreak = 0
+        } else {
+            memory.adapterGoneStreak += 1
+        }
+
         // P1 — no adapter: never hold a stale inhibit, and AC-dependent
         // one-shot tasks end here (calibration merely pauses).
-        // Caveat: force-discharge works by disabling the adapter in firmware,
-        // so while we are the ones discharging, an "unplugged" reading is our
-        // own doing — not a physical unplug. Skip the rule in that case.
+        // Caveats: force-discharge works by disabling the adapter in
+        // firmware, so while we are the ones discharging, an "unplugged"
+        // reading is our own doing — not a physical unplug. And a single
+        // "unplugged" reading can be post-wake staleness, so require two.
         let dischargingByUs = memory.lastAction == .forceDischarge
-        if !input.isAdapterConnected && !dischargingByUs {
+        if memory.adapterGoneStreak >= 2 && !dischargingByUs {
             switch memory.activeTask {
             case .topUp:
                 memory.activeTask = nil
@@ -167,21 +205,13 @@ public enum ChargingStateMachine {
             return finish(.allow, input: input, memory: &memory, config: config, events: events)
         }
 
-        // P2 — sleep transitions.
-        switch input.phase {
-        case .preSleep:
+        // P2 — pre-sleep transition (postWakeSettling was handled above).
+        if input.phase == .preSleep {
             if config.stopChargingWhenSleeping && effectiveTarget(config: config, memory: memory) < 100 {
                 return finish(.inhibit, input: input, memory: &memory, config: config, events: events)
             }
             return finish(memory.lastAction == .forceDischarge ? .inhibit : memory.lastAction,
                           input: input, memory: &memory, config: config, events: events)
-        case .postWakeSettling:
-            // Hold whatever we last did; the daemon skips the SMC write.
-            return EngineOutput(action: memory.lastAction, sleepBlock: false,
-                                led: led(for: memory.lastAction, input: input, config: config, atLimit: input.soc >= limit),
-                                events: events)
-        case .normal:
-            break
         }
 
         // P3 — heat protection (inhibit only; never discharge a hot battery).

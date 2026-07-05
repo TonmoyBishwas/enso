@@ -63,27 +63,38 @@ final class PowerEvents {
     }
 }
 
-/// Holds/releases the dark-wake assertion that keeps charging alive while
-/// the lid is closed on AC.
+/// Keeps the Mac awake during active charge cycles. Two assertions are held
+/// together because macOS honors them in different power states:
+/// - PreventSystemSleep: allows dark-wake charging with the lid closed, but
+///   is only honored on AC.
+/// - PreventUserIdleSystemSleep: honored on battery too — essential during
+///   force-discharge, when macOS believes it's running on battery.
 final class SleepAssertion {
-    private var assertionID: IOPMAssertionID = 0
+    private var systemID: IOPMAssertionID = 0
+    private var idleID: IOPMAssertionID = 0
     private(set) var isHeld = false
 
     func hold(reason: String) {
         guard !isHeld else { return }
-        let result = IOPMAssertionCreateWithName(
+        let r1 = IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventSystemSleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
             reason as CFString,
-            &assertionID
+            &systemID
         )
-        isHeld = (result == kIOReturnSuccess)
+        let r2 = IOPMAssertionCreateWithName(
+            "PreventUserIdleSystemSleep" as CFString,
+            IOPMAssertionLevel(kIOPMAssertionLevelOn),
+            reason as CFString,
+            &idleID
+        )
+        isHeld = (r1 == kIOReturnSuccess || r2 == kIOReturnSuccess)
     }
 
     func release() {
         guard isHeld else { return }
-        IOPMAssertionRelease(assertionID)
-        assertionID = 0
+        if systemID != 0 { IOPMAssertionRelease(systemID); systemID = 0 }
+        if idleID != 0 { IOPMAssertionRelease(idleID); idleID = 0 }
         isHeld = false
     }
 }

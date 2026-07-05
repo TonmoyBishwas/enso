@@ -26,11 +26,13 @@ final class SimulatedBatteryPropertyTests: XCTestCase {
         var violations: [String] = []
         var maxSoC = startSoC, minSoC = startSoC
         var settled = false
+        var unpluggedTicks = 0
         let t0 = Date(timeIntervalSince1970: 1_750_000_000)
 
         for tick in 0..<ticks {
             // Occasionally yank/restore the adapter.
             if Double.random(in: 0..<1, using: &rng) < 0.005 { adapter.toggle() }
+            unpluggedTicks = adapter ? 0 : unpluggedTicks + 1
 
             let input = EngineInput(
                 soc: Int(soc.rounded()),
@@ -47,8 +49,9 @@ final class SimulatedBatteryPropertyTests: XCTestCase {
             if Int(soc.rounded()) <= ChargeLimits.failsafeSoC && out.action != .allow {
                 violations.append("tick \(tick): action \(out.action) at SoC \(soc)")
             }
-            // Invariant: no inhibit action retained without adapter.
-            if !adapter && out.action != .allow {
+            // Invariant: no inhibit action retained without adapter
+            // (one tick of debounce grace is by design).
+            if unpluggedTicks >= 2 && out.action != .allow {
                 violations.append("tick \(tick): \(out.action) while unplugged")
             }
 
