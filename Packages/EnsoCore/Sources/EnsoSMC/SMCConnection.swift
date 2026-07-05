@@ -134,7 +134,7 @@ public final class SMCConnection: SMCService {
     }
 }
 
-func fourCC(_ code: UInt32) -> String {
+public func fourCC(_ code: UInt32) -> String {
     let chars: [Character] = (0..<4).reversed().map {
         Character(UnicodeScalar(UInt8((code >> ($0 * 8)) & 0xFF)))
     }
