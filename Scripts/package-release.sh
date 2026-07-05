@@ -12,21 +12,34 @@ rm -f dist/Enso.zip dist/Enso.zip.sha256
 ditto -c -k --keepParent dist/Enso.app dist/Enso.zip
 (cd dist && shasum -a 256 Enso.zip > Enso.zip.sha256)
 
+./Scripts/make-dmg.sh
+
 cat > dist/RELEASE_NOTES.md <<'EOF'
-## Installing
+## Easiest install (recommended)
 
-1. Download `Enso.zip`, unzip, and drag **Enso.app** into `/Applications`.
-2. Enso is a free open-source app without Apple's paid notarization, so
-   macOS blocks the first launch. Remove the quarantine flag:
+Paste this in Terminal — it downloads, installs, and opens Enso with no
+security warnings:
 
-   ```
-   xattr -dr com.apple.quarantine /Applications/Enso.app
-   ```
+```
+curl -fsSL https://raw.githubusercontent.com/TonmoyBishwas/enso/main/install.sh | bash
+```
 
-   (or open **System Settings → Privacy & Security** and click **Open Anyway**.)
-3. Launch Enso from the menu bar and click **Install Helper** — this one-time
-   step (admin password) installs the root daemon that controls charging.
-4. Turn off **System Settings → Battery → Optimized Battery Charging** so
+## Manual install
+
+Download `Enso.dmg`, open it, and drag **Enso** into **Applications**.
+Because Enso is free open-source software without Apple's paid notarization,
+macOS blocks the first launch of a *downloaded* copy — open **System
+Settings → Privacy & Security** and click **Open Anyway**, or run:
+
+```
+xattr -dr com.apple.quarantine /Applications/Enso.app
+```
+
+## After installing (both ways)
+
+1. Click Enso in the menu bar and press **Install Helper** — a one-time
+   admin-password step that installs the daemon that controls charging.
+2. Turn off **System Settings → Battery → Optimized Battery Charging** so
    macOS doesn't fight Enso.
 
 ## Uninstalling

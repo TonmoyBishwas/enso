@@ -49,14 +49,24 @@ Safety is designed in, not bolted on:
 - Unplugged Macs never hold a stale "don't charge" state.
 - Uninstalling restores everything to stock (limit 100%, LED to system control).
 
-## Installing (once releases exist)
+## Installing
 
-1. Download `Enso.zip` from [Releases](../../releases), unzip, drag **Enso.app** to `/Applications`.
-2. Enso is a free open-source app without Apple's $99/yr notarization, so macOS will block the first launch. Either:
-   - Open **System Settings → Privacy & Security**, scroll down, click **"Open Anyway"**, or
-   - run `xattr -dr com.apple.quarantine /Applications/Enso.app` in Terminal.
-3. Launch Enso and follow the one-time helper install (asks for your admin password — that's the root daemon that does the actual charge limiting).
-4. **Turn off** System Settings → Battery → *Optimized Battery Charging* (and Apple's own charge limit if set), so macOS doesn't fight Enso.
+**Easiest — one line in Terminal** (no security warnings, because Terminal
+downloads skip macOS quarantine):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TonmoyBishwas/enso/main/install.sh | bash
+```
+
+**Or manually:** download `Enso.dmg` from [Releases](../../releases) and drag
+**Enso** into **Applications**. Enso is free open-source software without
+Apple's $99/yr notarization, so macOS blocks the first launch of a browser
+download — open **System Settings → Privacy & Security** and click **"Open
+Anyway"**, or run `xattr -dr com.apple.quarantine /Applications/Enso.app`.
+
+**After either install (one time):**
+1. Click Enso in the menu bar and press **Install Helper** (asks for your admin password — that's the root daemon that does the actual charge limiting).
+2. **Turn off** System Settings → Battery → *Optimized Battery Charging* (and Apple's own charge limit if set), so macOS doesn't fight Enso.
 
 ## Uninstalling
 
