@@ -5,7 +5,7 @@ import EnsoEngine
 import EnsoSMC
 import EnsoBattery
 
-let ENSO_DAEMON_VERSION = "0.1.0"
+let ENSO_DAEMON_VERSION = ENSO_VERSION
 
 /// The daemon's core: owns the engine, the SMC, and all state. Every entry
 /// point (timer tick, power event, XPC call) funnels through `queue`.
