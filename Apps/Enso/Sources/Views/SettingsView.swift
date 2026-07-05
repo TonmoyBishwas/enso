@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmUninstall = false
     @AppStorage("showTrueBatteryHealth") private var showTrueHealth = false
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = true
 
     var body: some View {
         Form {
@@ -49,6 +50,30 @@ struct SettingsView: View {
 
                 Toggle("Show true battery health", isOn: $showTrueHealth)
                 Text("A young battery can hold more than its factory rating, so its true health can read above 100%. Off, the value is capped at 100% like Apple's Battery Health screen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if state.daemon.status?.hasMagSafeLED == true {
+                Section("MagSafe LED") {
+                    Picker("LED color", selection: $state.config.magSafeLED) {
+                        Text("System default").tag(MagSafeLEDMode.system)
+                        Text("Show Enso status").tag(MagSafeLEDMode.enso)
+                        Text("Always off").tag(MagSafeLEDMode.off)
+                    }
+                    .onChange(of: state.config.magSafeLED) { _, _ in state.pushConfig() }
+                    Text("“Show Enso status” turns the LED green when holding at your limit and amber while charging or discharging.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Notifications") {
+                Toggle("Notify on charging events", isOn: $notificationsEnabled)
+                    .onChange(of: notificationsEnabled) { _, enabled in
+                        if enabled { NotificationManager.shared.requestAuthorizationIfNeeded() }
+                    }
+                Text("Charge limit reached, Top Up and Discharge finished, heat protection, and failsafe events.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

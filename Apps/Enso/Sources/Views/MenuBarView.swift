@@ -11,12 +11,87 @@ struct MenuBarView: View {
         VStack(spacing: 14) {
             header
             limitSection
+            actionRow
             helperBanner
             statsGrid
             footer
         }
         .padding(16)
         .frame(width: 320)
+    }
+
+    // MARK: one-tap actions
+
+    @ViewBuilder
+    private var actionRow: some View {
+        if state.daemon.state == .ready {
+            if let task = state.daemon.status?.activeTask {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(taskDescription(task))
+                        .font(.callout)
+                    Spacer(minLength: 0)
+                    actionButton("Stop", prominent: false) { state.run(.cancelTask) }
+                }
+                .padding(.vertical, 2)
+            } else {
+                HStack(spacing: 10) {
+                    actionButton("Top Up", icon: "bolt.fill", prominent: false) {
+                        state.run(.topUp)
+                    }
+                    .disabled(!canTopUp)
+                    .help("Charge to 100% once — the limit comes back after you unplug.")
+
+                    actionButton("Discharge", icon: "arrow.down.to.line", prominent: false) {
+                        state.run(.discharge(target: state.config.chargeLimit))
+                    }
+                    .disabled(!canDischarge)
+                    .help("Drain the battery down to your \(state.config.chargeLimit)% limit while plugged in.")
+                }
+            }
+        }
+    }
+
+    private var canTopUp: Bool {
+        (state.battery?.socPercent ?? 100) < 100 && state.battery?.isAdapterConnected == true
+    }
+
+    private var canDischarge: Bool {
+        guard let battery = state.battery else { return false }
+        return battery.isAdapterConnected
+            && state.config.chargeLimit < 100
+            && battery.socPercent > state.config.chargeLimit
+    }
+
+    private func taskDescription(_ task: String) -> String {
+        if task == "topUp" { return "Topping up to 100%…" }
+        if task == "discharge" { return "Discharging to \(state.config.chargeLimit)%…" }
+        if task.hasPrefix("calibration") { return "Calibrating…" }
+        return task
+    }
+
+    @ViewBuilder
+    private func actionButton(_ title: String, icon: String? = nil, prominent: Bool,
+                              action: @escaping () -> Void) -> some View {
+        let label = HStack(spacing: 5) {
+            if let icon { Image(systemName: icon).font(.caption) }
+            Text(title)
+        }
+        .frame(maxWidth: .infinity)
+        if #available(macOS 26.0, *) {
+            if prominent {
+                Button(action: action) { label }.buttonStyle(.glassProminent)
+            } else {
+                Button(action: action) { label }.buttonStyle(.glass)
+            }
+        } else {
+            if prominent {
+                Button(action: action) { label }.buttonStyle(.borderedProminent)
+            } else {
+                Button(action: action) { label }.buttonStyle(.bordered)
+            }
+        }
     }
 
     // MARK: header — charge ring with limit tick (the one signature element)

@@ -22,6 +22,22 @@ public enum HandshakeResult: Int, Codable, Sendable {
     case protocolMismatch = 2
 }
 
+/// A noteworthy engine event, timestamped by the daemon. The app polls these
+/// via getStatus and turns fresh ones into user notifications.
+public struct StampedEvent: Codable, Equatable, Sendable {
+    /// Stable machine-readable kind, e.g. "limitReached", "dischargeDone".
+    public var kind: String
+    /// Human-readable message, ready to display.
+    public var message: String
+    public var date: Date
+
+    public init(kind: String, message: String, date: Date) {
+        self.kind = kind
+        self.message = message
+        self.date = date
+    }
+}
+
 /// Snapshot of daemon state returned by getStatus, JSON-encoded over XPC.
 public struct DaemonStatus: Codable, Equatable, Sendable {
     public enum ChargingStrategy: String, Codable, Sendable {
@@ -40,6 +56,12 @@ public struct DaemonStatus: Codable, Equatable, Sendable {
     public var activeTask: String?
     public var failsafeActive: Bool
     public var lastTickAt: Date?
+    /// Recent engine events (ring buffer, newest last). Optional so payloads
+    /// from older daemons still decode.
+    public var recentEvents: [StampedEvent]?
+    /// Whether this Mac's SMC exposes the MagSafe LED key. Optional for the
+    /// same compatibility reason.
+    public var hasMagSafeLED: Bool?
 
     public init(
         daemonVersion: String,
@@ -49,7 +71,9 @@ public struct DaemonStatus: Codable, Equatable, Sendable {
         currentAction: String,
         activeTask: String? = nil,
         failsafeActive: Bool = false,
-        lastTickAt: Date? = nil
+        lastTickAt: Date? = nil,
+        recentEvents: [StampedEvent]? = nil,
+        hasMagSafeLED: Bool? = nil
     ) {
         self.daemonVersion = daemonVersion
         self.protocolVersion = protocolVersion
@@ -59,6 +83,8 @@ public struct DaemonStatus: Codable, Equatable, Sendable {
         self.activeTask = activeTask
         self.failsafeActive = failsafeActive
         self.lastTickAt = lastTickAt
+        self.recentEvents = recentEvents
+        self.hasMagSafeLED = hasMagSafeLED
     }
 }
 

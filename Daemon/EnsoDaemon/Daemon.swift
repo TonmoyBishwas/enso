@@ -37,6 +37,7 @@ final class Daemon {
     private var powerEvents: PowerEvents?
     private let sleepAssertion = SleepAssertion()
     private var sleepBlockActive = false
+    private var recentEvents: [StampedEvent] = []
 
     init(dryRun: Bool) {
         self.dryRun = dryRun
@@ -140,9 +141,7 @@ final class Daemon {
         let before = memory
         let output = ChargingStateMachine.step(input: input, memory: &memory)
 
-        for event in output.events {
-            log.notice("engine event: \(String(describing: event), privacy: .public)")
-        }
+        record(events: output.events, soc: soc, at: now)
 
         // postWakeSettling means: decide nothing new, write nothing.
         if phase != .postWakeSettling {
@@ -240,7 +239,9 @@ final class Daemon {
                 currentAction: (lastAppliedAction ?? memory.lastAction).rawValue,
                 activeTask: memory.activeTask?.label,
                 failsafeActive: memory.failsafeActive,
-                lastTickAt: lastTickAt
+                lastTickAt: lastTickAt,
+                recentEvents: recentEvents,
+                hasMagSafeLED: control.capabilities.hasMagSafeLED
             )
         }
     }
@@ -295,8 +296,56 @@ final class Daemon {
     }
 
     private func logEvents(_ events: [EngineEvent]) {
+        record(events: events, soc: nil, at: Date())
+    }
+
+    /// Logs engine events and keeps the notification-worthy ones in a ring
+    /// buffer the app polls via getStatus.
+    private func record(events: [EngineEvent], soc: Int?, at date: Date) {
         for event in events {
             log.notice("engine event: \(String(describing: event), privacy: .public)")
+            guard let stamped = Self.stamp(event, soc: soc, config: config, at: date) else { continue }
+            recentEvents.append(stamped)
+            if recentEvents.count > 20 {
+                recentEvents.removeFirst(recentEvents.count - 20)
+            }
+        }
+    }
+
+    static func stamp(_ event: EngineEvent, soc: Int?, config: EnsoConfig, at date: Date) -> StampedEvent? {
+        switch event {
+        case .limitReached:
+            return StampedEvent(kind: "limitReached",
+                                message: "Charge limit reached — holding at \(config.chargeLimit)%.",
+                                date: date)
+        case .topUpDone:
+            return StampedEvent(kind: "topUpDone",
+                                message: "Top Up finished — back to the \(config.chargeLimit)% limit after unplugging.",
+                                date: date)
+        case .dischargeDone:
+            return StampedEvent(kind: "dischargeDone",
+                                message: "Discharge finished\(soc.map { " at \($0)%" } ?? "").",
+                                date: date)
+        case .heatPauseStarted:
+            return StampedEvent(kind: "heatPauseStarted",
+                                message: "Charging paused — battery temperature is above \(Int(config.heatThresholdCelsius)) °C.",
+                                date: date)
+        case .heatPauseEnded:
+            return StampedEvent(kind: "heatPauseEnded",
+                                message: "Battery cooled down — charging can resume.",
+                                date: date)
+        case .calibrationDone:
+            return StampedEvent(kind: "calibrationDone",
+                                message: "Calibration cycle complete.",
+                                date: date)
+        case .failsafeActivated:
+            return StampedEvent(kind: "failsafe",
+                                message: "Failsafe engaged — charging is allowed unconditionally.",
+                                date: date)
+        case .taskCancelled(let reason):
+            return StampedEvent(kind: "taskCancelled", message: reason, date: date)
+        case .calibrationPhaseChanged:
+            return nil // too chatty for notifications; visible in status
         }
     }
 

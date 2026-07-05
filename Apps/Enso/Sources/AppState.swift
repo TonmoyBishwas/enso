@@ -19,6 +19,8 @@ final class AppState: ObservableObject {
     private var timer: Timer?
     private var powerObserver: PowerSourceObserver?
     private var configSynced = false
+    /// Newest daemon event we've already surfaced as a notification.
+    private var lastSeenEventDate: Date = .now
 
     init() {
         refreshBattery()
@@ -46,6 +48,20 @@ final class AppState: ObservableObject {
         }
         if daemon.state != .ready {
             configSynced = false
+        }
+        surfaceNewEvents()
+    }
+
+    /// Turn daemon events the user hasn't seen into notifications.
+    private func surfaceNewEvents() {
+        guard UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true,
+              let events = daemon.status?.recentEvents else { return }
+        let fresh = events.filter { $0.date > lastSeenEventDate }
+        guard !fresh.isEmpty else { return }
+        lastSeenEventDate = fresh.map(\.date).max() ?? lastSeenEventDate
+        NotificationManager.shared.requestAuthorizationIfNeeded()
+        for event in fresh {
+            NotificationManager.shared.post(kind: event.kind, message: event.message)
         }
     }
 

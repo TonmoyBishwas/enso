@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.0 — Control (2026-07-05)
+
+- **Top Up button**: charge to 100% once (for a trip); the limit returns
+  automatically after you unplug.
+- **Discharge button**: drain down to your limit while plugged in, with live
+  progress and a Stop button.
+- **MagSafe LED control** (Settings): green when holding at the limit, amber
+  while charging/discharging, or always off.
+- **Notifications**: charge limit reached, Top Up / Discharge finished, heat
+  protection, calibration done, failsafe. Toggle in Settings.
+- Daemon now feeds recent events to the app (helper update required — one
+  admin prompt on first launch).
+
 ## v0.1.1 (2026-07-05)
 
 - Battery health now reads at most 100% by default (like Apple's Battery
