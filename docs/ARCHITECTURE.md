@@ -1,5 +1,8 @@
 # Enso Architecture
 
+One-page overview. For the in-depth guided tour (module internals, hardware
+gotchas, how to add a feature), read [CODEBASE.md](CODEBASE.md).
+
 Enso is three executables plus one Swift package:
 
 ```
@@ -39,16 +42,18 @@ adapter as disconnected on the next tick. The engine therefore skips the
 1. **The daemon owns every charging decision.** The app is UI + config only. If the app crashes, the limit keeps being enforced. On graceful quit the app sends `appWillQuit`; the daemon keeps maintaining or resets to 100%, per user setting.
 2. **The engine is pure.** All inputs (battery %, temperature, wall-clock, sleep phase, config) are injected. Output is `(action, sleepBlock, led, events)`. This makes the safety-critical logic exhaustively testable in CI without hardware.
 3. **Engine priority order, first match wins:**
-   - P0 failsafe (SoC ≤ 10% / no working key / SMC error streak → allow, cancel tasks)
-   - P1 no adapter → allow
-   - P2 pre-sleep inhibit / post-wake settle
+   - P0 failsafe (SoC ≤ 10% / no working key / SMC error streak ≥ 3 → allow, cancel tasks)
+   - post-wake settle: hold the previous action, decide nothing (IOKit readings are stale after wake — this must run before any adapter-based rule)
+   - adapter-gone debounce: an unplug only counts after 2 consecutive "disconnected" ticks
+   - P1 no adapter → allow, cancel top-up/discharge (skipped while our own force-discharge is what makes the adapter read disconnected)
+   - P2 pre-sleep inhibit
    - P3 heat protection (inhibit; resume after temp < threshold−2°C AND 5 min)
    - P4 calibration sub-machine
-   - P5 top up
-   - P6 discharge task
-   - P7 maintain with hysteresis (sailing lower bound, or limit−1)
+   - P5 top up (done at 100%, or ≥ 99% sustained 10 min — macOS tops off slowly)
+   - P6 discharge task (floor 15%)
+   - P7 maintain with hysteresis (sailing lower bound, or limit−1; optional automatic discharge above the limit)
 4. **Every SMC write is verified by read-back.** Three consecutive failures → re-probe capabilities → if no strategy works, failsafe + "unsupported firmware" status.
-5. **Sleep correctness** (the classic "charged to 100% overnight" bug): on `kIOMessageSystemWillSleep` the daemon proactively inhibits charging if limit < 100 and suppresses the maintain loop for 60s; on wake it waits 30s before acting.
+5. **Sleep correctness** (the classic "charged to 100% overnight" bug): on `kIOMessageSystemWillSleep` the daemon proactively inhibits charging if the target < 100 and suppresses the maintain loop for 60s; on wake it holds all decisions for a 45s settle window, then re-probes capabilities. During active charge cycles it holds *both* `PreventSystemSleep` (dark-wake charging on AC) and `PreventUserIdleSystemSleep` (honored on battery — required during force-discharge, when macOS believes it is on battery).
 
 ## Privilege model
 

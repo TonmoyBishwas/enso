@@ -82,6 +82,14 @@ swift test --package-path Packages/EnsoCore   # run the test suite
 
 Or open the folder in Xcode (`xed .`) and run the `Enso` scheme. The core logic lives in the `Packages/EnsoCore` Swift package; the app, root daemon (`ensod`), and CLI (`ensoctl`) are SPM executable targets assembled into an app bundle by `Scripts/make-app.sh`.
 
+## Documentation
+
+- [docs/CODEBASE.md](docs/CODEBASE.md) — the in-depth guided tour: every module, the charging engine's rule ladder, the privilege model, hardware gotchas, and how to add a feature.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the one-page overview.
+- [docs/SMC-KEYS.md](docs/SMC-KEYS.md) — the SMC key registry (with hardware-verification status).
+- [docs/TESTING.md](docs/TESTING.md) — CI coverage and the manual hardware protocol.
+- [CLAUDE.md](CLAUDE.md) — guardrails and known traps for AI coding agents (useful reading for humans too).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

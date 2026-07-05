@@ -2,21 +2,32 @@
 
 Living document. Semantics gathered from charlie0129/batt, rurza/BatFi, mhaeuser/Battery-Toolkit, OpenDente, and the Linux `macsmc-power` driver. **Verify on real hardware before trusting a new key.**
 
+**Verification legend:** ✅ = confirmed live on a MacBook Air M4, macOS 26.5.1
+(the semantics in that row are exactly what the hardware did). 📚 =
+literature-sourced only — the key set doesn't exist on our Tahoe test machine,
+so the legacy path has never run against real firmware. Community reports from
+M1–M3 Macs on pre-Tahoe macOS are very welcome.
+
 ## Charging control (root required to write)
 
-| Key | Type | Semantics | Firmware |
-|---|---|---|---|
-| `CHTE` | u32 | Charging inhibit. `0x00000001` (LE `01 00 00 00`) = inhibit, `0` = allow | macOS 26 Tahoe firmware |
-| `CH0B` | u8 | Charging inhibit gate. `0x02` = inhibit, `0x00` = allow. Write together with `CH0C`. Read-back may return `0x03` when inhibited | pre-Tahoe |
-| `CH0C` | u8 | Sibling of `CH0B`, same values | pre-Tahoe |
-| `CHIE` | u8 | Adapter disable / force discharge. `0x08` = disable adapter, `0x00` = enable | Tahoe |
-| `CH0I` | u8 | Force discharge on AC. `0x01` = discharge, `0x00` = normal | pre-Tahoe |
-| `CH0J` | u8 | Secondary adapter gate (batt: enable=0x0, disable=0x1) | pre-Tahoe |
-| `CHWA` | u8/flag | Apple's fixed 80% limit. `1` = on. Not adjustable; used only for "defer to macOS" mode. Sequoia+ restricts writes from non-entitled processes | 13.0+ |
+| ✓ | Key | Type | Semantics | Firmware |
+|---|---|---|---|---|
+| ✅ | `CHTE` | u32 | Charging inhibit. `0x00000001` (LE `01 00 00 00`) = inhibit, `0` = allow | macOS 26 Tahoe firmware |
+| 📚 | `CH0B` | u8 | Charging inhibit gate. `0x02` = inhibit, `0x00` = allow. Write together with `CH0C`. Read-back may return `0x03` when inhibited | pre-Tahoe |
+| 📚 | `CH0C` | u8 | Sibling of `CH0B`, same values | pre-Tahoe |
+| ✅ | `CHIE` | u8 | Adapter disable / force discharge. `0x08` = disable adapter, `0x00` = enable. **Side effect (verified): while set to `0x08`, IOKit reports the adapter as physically disconnected** — the engine must not mistake its own discharge for an unplug | Tahoe |
+| 📚 | `CH0I` | u8 | Force discharge on AC. `0x01` = discharge, `0x00` = normal | pre-Tahoe |
+| 📚 | `CH0J` | u8 | Secondary adapter gate (batt: enable=0x0, disable=0x1) | pre-Tahoe |
+| 📚 | `CHWA` | u8/flag | Apple's fixed 80% limit. `1` = on. Not adjustable; used only for "defer to macOS" mode. Sequoia+ restricts writes from non-entitled processes. **Absent on our M4/26.5.1 firmware** | 13.0+ |
 
 Strategy: probe at daemon start / wake / write-failure. Prefer `CHTE`/`CHIE` when present; else `CH0B`+`CH0C` / `CH0I`.
 
 ## Status / telemetry (read-only, no root for IORegistry equivalents)
+
+Verified on the M4: `BUIC` (hardware SoC), `B0CT` (cycles), and the
+`TB0T`/`TB1T`/`TB2T` temperature family (little-endian IEEE `flt` on this
+firmware; other models report `ui16`/`sp78` — `ChargingControl.decodeTemperature`
+handles all three). The rest of this table is literature-sourced.
 
 | Key | Meaning |
 |---|---|
@@ -31,7 +42,7 @@ Strategy: probe at daemon start / wake / write-failure. Prefer `CHTE`/`CHIE` whe
 | `CHNC` | Charge flags (bit0 full, bit7 no charger, bit14/15 inhibit) |
 | `MSLD` | Lid closed |
 
-## MagSafe LED — `ACLC` (u8)
+## MagSafe LED — `ACLC` (u8) ✅ verified visually on M4
 
 | Value | State |
 |---|---|
@@ -39,7 +50,7 @@ Strategy: probe at daemon start / wake / write-failure. Prefer `CHTE`/`CHIE` whe
 | `0x01` | Off |
 | `0x03` | Green |
 | `0x04` | Orange/amber |
-| `0x05`–`0x07` | Error blink variants |
+| `0x05`–`0x07` | Error blink variants (literature; not exercised) |
 
 ## I/O mechanics
 

@@ -1,5 +1,11 @@
 # Enso — Free & Open-Source AlDente Alternative (Apple Silicon)
 
+> **Historical document.** This is the original pre-implementation design
+> spec, kept for the research notes and rationale. Details drifted during
+> implementation (timings, engine rule order, file names) — where this file
+> and the code disagree, the code wins. For current documentation see
+> [CODEBASE.md](CODEBASE.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Context
 
 The user wants a free, open-source macOS battery charge limiter equivalent to AlDente Pro (AppHouseKitchen). AlDente locks most features (calibration, heat protection, scheduling, etc.) behind a paid tier. Goal: a community-usable app that covers ~all of AlDente's functionality, free.
@@ -159,7 +165,7 @@ Sleep-block output is orthogonal ("disable sleep until limit"). Schedules live o
 5. First real SMC writes following the manual hardware protocol below; then sleep/wake handling.
 6. SwiftUI app UI last (thinnest layer). Ship v0.1.0.
 
-Git: commit at each coherent step, push to `origin/main` regularly (author email ttomoy46@gmail.com); releases via `gh release create` on tags with zip built by `ditto -c -k --keepParent` (preserves xattrs/signatures — never plain zip).
+Git: commit at each coherent step, push to `origin/main` regularly; releases via `gh release create` on tags with zip built by `ditto -c -k --keepParent` (preserves xattrs/signatures — never plain zip).
 
 ### Verification
 
