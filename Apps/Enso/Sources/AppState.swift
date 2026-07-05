@@ -21,6 +21,8 @@ final class AppState: ObservableObject {
     private var configSynced = false
     /// Newest daemon event we've already surfaced as a notification.
     private var lastSeenEventDate: Date = .now
+    /// Set on every local edit so heartbeats don't clobber in-flight changes.
+    private var lastLocalEdit: Date = .distantPast
 
     init() {
         refreshBattery()
@@ -40,13 +42,17 @@ final class AppState: ObservableObject {
     func heartbeat() async {
         refreshBattery()
         await daemon.refresh()
-        // Adopt the daemon's persisted config once per connection so the UI
-        // reflects reality (the daemon owns the config).
-        if daemon.state == .ready, let status = daemon.status, !configSynced {
-            config = status.config
-            configSynced = true
-        }
-        if daemon.state != .ready {
+        // The daemon owns the config. Adopt it on first connect, and re-adopt
+        // whenever it changes externally (ensoctl, another session) — but
+        // never within 10s of a local edit, so we don't clobber what the
+        // user is in the middle of changing.
+        if daemon.state == .ready, let status = daemon.status {
+            let editSettled = Date().timeIntervalSince(lastLocalEdit) > 10
+            if !configSynced || (status.config != config && editSettled) {
+                config = status.config
+                configSynced = true
+            }
+        } else {
             configSynced = false
         }
         surfaceNewEvents()
@@ -67,6 +73,7 @@ final class AppState: ObservableObject {
 
     /// Push the current UI config to the daemon.
     func pushConfig() {
+        lastLocalEdit = Date()
         Task {
             lastError = await daemon.apply(config: config.validated())
         }

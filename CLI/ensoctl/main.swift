@@ -16,6 +16,7 @@ func usage() -> Never {
     Daemon control (requires the Enso helper to be installed):
       status                 show daemon state, strategy, current action
       limit <50-100>         set the charge limit
+      led <system|enso|off>  MagSafe LED: system default, Enso status colors, or off
       topup                  charge to 100% once, then return to the limit
       discharge <15-100>     drain to a target while on AC
       calibrate              run a full calibration cycle
@@ -203,6 +204,24 @@ case "limit":
             proxy.applyConfig(json) { error in
                 if let error { fputs("error: \(error)\n", stderr); exit(1) }
                 print("charge limit set to \(value)%")
+                done()
+            }
+        }
+    }
+
+case "led":
+    guard args.count >= 2, let mode = MagSafeLEDMode(rawValue: args[1]) else { usage() }
+    withDaemon { proxy, done in
+        proxy.getStatus { data in
+            guard let data,
+                  var status = try? JSONDecoder().decode(DaemonStatus.self, from: data) else {
+                fputs("could not read current config\n", stderr); exit(1)
+            }
+            status.config.magSafeLED = mode
+            let json = try! JSONEncoder().encode(status.config)
+            proxy.applyConfig(json) { error in
+                if let error { fputs("error: \(error)\n", stderr); exit(1) }
+                print("MagSafe LED mode: \(mode.rawValue)")
                 done()
             }
         }
