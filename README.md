@@ -1,0 +1,56 @@
+# Enso
+
+**Free & open-source battery charge limiter for Apple Silicon MacBooks.**
+
+Enso keeps your MacBook's battery healthy by limiting how far it charges — like [AlDente](https://apphousekitchen.com), but every feature is free and the code is open. Lithium-ion batteries age fastest when held at 100%; keeping the charge around 80% dramatically slows capacity loss.
+
+> ⚠️ **Status: early development.** v0.1 (core charge limiting) is being built in the open. Watch/star the repo for releases.
+
+## Features (roadmap)
+
+- ✅ = shipped, 🔜 = planned
+- 🔜 **Charge Limit** — hold the battery at any level from 50–100% (not just Apple's 5% steps)
+- 🔜 **Top Up** — temporarily charge to 100% for a trip, auto-revert after unplugging
+- 🔜 **Discharge** — drain to a target level while plugged in (manual + automatic)
+- 🔜 **Sailing Mode** — let the charge drift in a range (e.g. 75–80%) instead of micro-charging at one number
+- 🔜 **Heat Protection** — pause charging when the battery runs hot
+- 🔜 **Calibration Mode** — scheduled full cycles to keep the battery gauge accurate
+- 🔜 **Schedules** — automate limits, calibration, top-ups
+- 🔜 **MagSafe LED control** — green at limit, amber while charging
+- 🔜 **Hardware battery %** — read the true BMS value, not the smoothed one
+- 🔜 **Stats & Power Flow** — health, cycles, temperature, live power diagram
+- 🔜 **Shortcuts support and a real CLI** (`ensoctl`)
+- 🔜 **Menu bar customization**, notifications, launch at login
+
+**Requirements:** Apple Silicon MacBook (M1 or newer), macOS 14+. Intel Macs are not supported.
+
+## How it works
+
+Apple Silicon Macs have no user-facing "charge to N%" register, so Enso ships a tiny root helper (a `launchd` daemon) that watches the battery and toggles the SMC charging-inhibit key around your limit — the same proven approach used by [batt](https://github.com/charlie0129/batt) and BatFi. The app itself is a lightweight SwiftUI menu bar app; all charging decisions run in the helper, so your limit is enforced even when the app is closed or before you log in.
+
+Safety is designed in, not bolted on:
+- Hard failsafe: charging is always allowed at ≤10% battery, no matter what.
+- Every SMC write is read back and verified; unknown firmware → Enso stands down.
+- Unplugged Macs never hold a stale "don't charge" state.
+- Uninstalling restores everything to stock (limit 100%, LED to system control).
+
+## Installing (once releases exist)
+
+1. Download `Enso.zip` from [Releases](../../releases), unzip, drag **Enso.app** to `/Applications`.
+2. Enso is a free open-source app without Apple's $99/yr notarization, so macOS will block the first launch. Either:
+   - Open **System Settings → Privacy & Security**, scroll down, click **"Open Anyway"**, or
+   - run `xattr -dr com.apple.quarantine /Applications/Enso.app` in Terminal.
+3. Launch Enso and follow the one-time helper install (asks for your admin password — that's the root daemon that does the actual charge limiting).
+4. **Turn off** System Settings → Battery → *Optimized Battery Charging* (and Apple's own charge limit if set), so macOS doesn't fight Enso.
+
+## Uninstalling
+
+Use **Settings → Uninstall Helper** inside Enso (restores your battery to stock behavior), then trash the app. If you already deleted the app, run `Scripts/uninstall.sh` from this repo with `sudo`.
+
+## Building from source
+
+Open `Enso.xcodeproj` in Xcode 26+ and press ⌘R. Core logic lives in the `Packages/EnsoCore` Swift package — run its tests with `swift test --package-path Packages/EnsoCore`.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
